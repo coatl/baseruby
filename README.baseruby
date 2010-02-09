@@ -1,0 +1,9 @@
+baseruby is a fork of ruby (currently 1.8.6) with some changes:
+
+removed statics
+Marshal.ignore_sclass
+replaced regex engine with oniguruma
+deleted gdbm
+deleted readline; always use libedit instead
+cast2Proc
+
