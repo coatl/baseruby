@@ -485,11 +485,13 @@ rb_reg_to_s(re)
 	    goto again;
 	}
 	if (*ptr == ':' && ptr[len-1] == ')') {
+            int r;
 	    Regexp *rp;
 	    rb_kcode_set_option(re);
-	    rp = ALLOC(Regexp);
-	    MEMZERO((char *)rp, Regexp, 1);
-	    err = re_compile_pattern(++ptr, len -= 2, rp) != 0;
+	    r = re_alloc_pattern(&rp);
+	    if (r == 0) {
+	      err = (re_compile_pattern(++ptr, len -= 2, rp, NULL) != 0);
+	    }
 	    rb_kcode_reset_option();
 	    re_free_pattern(rp);
 	}
@@ -623,7 +625,9 @@ make_regexp(s, len, flags)
     int flags;
 {
     Regexp *rp;
-    char *err;
+    char err[ONIG_MAX_ERROR_MESSAGE_LEN];
+    int r;
+
 
     /* Handle escaped characters first. */
 
@@ -632,17 +636,18 @@ make_regexp(s, len, flags)
        from that.
     */
 
-    rp = ALLOC(Regexp);
-    MEMZERO((char *)rp, Regexp, 1);
-    rp->buffer = ALLOC_N(char, 16);
-    rp->allocated = 16;
-    rp->fastmap = ALLOC_N(char, 256);
+    r = re_alloc_pattern(&rp);
+    if (r) {
+      re_error_code_to_str((UChar* )err, r);
+      rb_reg_raise(s, len, err, 0);
+    }
+
     if (flags) {
 	rp->options = flags;
     }
-    err = re_compile_pattern(s, len, rp);
+    r = re_compile_pattern(s, len, rp, err);
 
-    if (err != NULL) {
+    if (r != 0) {
 	re_free_pattern(rp);
 	rb_reg_raise(s, len, err, 0);
 	return 0;
@@ -676,6 +681,7 @@ match_alloc(klass)
 
     match->str = 0;
     match->regs = 0;
+    match->regexp = 0;
     match->regs = ALLOC(struct re_registers);
     MEMZERO(match->regs, struct re_registers, 1);
 
@@ -701,6 +707,7 @@ match_init_copy(obj, orig)
 	rb_raise(rb_eTypeError, "wrong argument class");
     }
     RMATCH(obj)->str = RMATCH(orig)->str;
+    RMATCH(obj)->regexp = RMATCH(orig)->regexp;
     re_free_registers(RMATCH(obj)->regs);
     RMATCH(obj)->regs->allocated = 0;
     re_copy_registers(RMATCH(obj)->regs, RMATCH(orig)->regs);
@@ -858,14 +865,15 @@ rb_reg_prepare_re(re)
     }
 
     if (need_recompile) {
-	char *err;
+	char err[ONIG_MAX_ERROR_MESSAGE_LEN];
+	int r;
+
 
 	if (FL_TEST(re, KCODE_FIXED))
 	    rb_kcode_set_option(re);
 	rb_reg_check(re);
-	RREGEXP(re)->ptr->fastmap_accurate = 0;
-	err = re_compile_pattern(RREGEXP(re)->str, RREGEXP(re)->len, RREGEXP(re)->ptr);
-	if (err != NULL) {
+	r = re_recompile_pattern(RREGEXP(re)->str, RREGEXP(re)->len, RREGEXP(re)->ptr, err);
+	if (r != 0) {
 	    rb_reg_raise(RREGEXP(re)->str, RREGEXP(re)->len, err, re);
 	}
     }
@@ -933,15 +941,16 @@ rb_reg_search(re, str, pos, reverse)
     if (FL_TEST(re, KCODE_FIXED))
 	rb_kcode_reset_option();
 
-    if (result == -2) {
-	rb_reg_raise(RREGEXP(re)->str, RREGEXP(re)->len,
-		     "Stack overflow in regexp matcher", re);
-    }
-
     if (result < 0) {
-	re_free_registers(&regs);
-	rb_backref_set(Qnil);
-	return result;
+       if (result == ONIG_MISMATCH) {
+         rb_backref_set(Qnil);
+         return result;
+       }
+       else {
+         char err[ONIG_MAX_ERROR_MESSAGE_LEN];
+         re_error_code_to_str((UChar* )err, result);
+         rb_reg_raise(RREGEXP(re)->str, RREGEXP(re)->len, err, 0);
+       }
     }
 
     match = rb_backref_get();
@@ -958,6 +967,7 @@ rb_reg_search(re, str, pos, reverse)
     re_copy_registers(RMATCH(match)->regs, &regs);
     re_free_registers(&regs);
     RMATCH(match)->str = rb_str_new4(str);
+    RMATCH(match)->regexp = re;
     rb_backref_set(match);
 
     OBJ_INFECT(match, re);
@@ -1195,6 +1205,23 @@ match_captures(match)
 }
 
 
+static int
+name_to_backref_number(struct re_registers *regs, VALUE regexp, const char* name, const char* name_end)
+{
+  int num;
+
+  num = onig_name_to_backref_number(RREGEXP(regexp)->ptr,
+            (unsigned char* )name, (unsigned char* )name_end, regs);
+  if (num >= 1) {
+    return num;
+  }
+  else {
+    VALUE s = rb_str_new(name, (long )(name_end - name));
+    rb_raise(rb_eRuntimeError, "undefined group name reference: %s",
+                                StringValuePtr(s));
+  }
+}
+
 /*
  *  call-seq:
  *     mtch[i]               => obj
@@ -1224,10 +1251,37 @@ match_aref(argc, argv, match)
 
     rb_scan_args(argc, argv, "11", &idx, &rest);
 
-    if (!NIL_P(rest) || !FIXNUM_P(idx) || FIX2INT(idx) < 0) {
-	return rb_ary_aref(argc, argv, match_to_a(match));
+    if (NIL_P(rest)) {
+      if (FIXNUM_P(idx)) {
+        if (FIX2INT(idx) >= 0) {
+          return rb_reg_nth_match(FIX2INT(idx), match);
+        }
+      }
+      else {
+        const char *p;
+        int num;
+
+        switch (TYPE(idx)) {
+          case T_SYMBOL:
+            p = rb_id2name(SYM2ID(idx));
+            goto name_to_backref;
+            break;
+          case T_STRING:
+            p = StringValuePtr(idx);
+
+          name_to_backref:
+            num = name_to_backref_number(RMATCH(match)->regs,
+                       RMATCH(match)->regexp, p, p + strlen(p));
+            return rb_reg_nth_match(num, match);
+            break;
+
+          default:
+            break;
+        }
+      }
     }
-    return rb_reg_nth_match(FIX2INT(idx), match);
+
+    return rb_ary_aref(argc, argv, match_to_a(match));
 }
 
 static VALUE match_entry _((VALUE, long));
@@ -2032,12 +2086,14 @@ rb_reg_init_copy(copy, re)
 }
 
 VALUE
-rb_reg_regsub(str, src, regs)
+rb_reg_regsub(str, src, regs, regexp)
     VALUE str, src;
     struct re_registers *regs;
+    VALUE regexp;
 {
     VALUE val = 0;
-    char *p, *s, *e, c;
+    char *p, *s, *e;
+    unsigned char uc;
     int no;
 
     p = s = RSTRING(str)->ptr;
@@ -2046,12 +2102,12 @@ rb_reg_regsub(str, src, regs)
     while (s < e) {
 	char *ss = s;
 
-	c = *s++;
-	if (ismbchar(c)) {
-	    s += mbclen(c) - 1;
+	uc = (unsigned char )*s++;
+	if (ismbchar(uc)) {
+	    s += mbclen(uc) - 1;
 	    continue;
 	}
-	if (c != '\\' || s == e) continue;
+	if (uc != '\\' || s == e) continue;
 
 	if (!val) {
 	    val = rb_str_buf_new(ss-p);
@@ -2061,13 +2117,38 @@ rb_reg_regsub(str, src, regs)
 	    rb_str_buf_cat(val, p, ss-p);
 	}
 
-	c = *s++;
+	uc = (unsigned char )*s++;
 	p = s;
-	switch (c) {
-	  case '0': case '1': case '2': case '3': case '4':
+	switch (uc) {
+	  case '1': case '2': case '3': case '4':
 	  case '5': case '6': case '7': case '8': case '9':
-	    no = c - '0';
+	    no = uc - '0';
 	    break;
+
+          case 'k':
+            if (s < e && *s == '<') {
+              char *name, *name_end;
+
+              name_end = name = s + 1;
+              while (name_end < e) {
+                if (*name_end == '>') break;
+                uc = (unsigned char)*name_end;
+                name_end += mbclen(uc);
+              }
+              if (name_end < e) {
+                no = name_to_backref_number(regs, regexp, name, name_end);
+                p = s = name_end + 1;
+                break;
+              }
+              else {
+                rb_raise(rb_eRuntimeError, "invalid group name reference format");
+              }
+            }
+
+            rb_str_buf_cat(val, s-2, 2);
+            continue;
+
+	  case '0':
 	  case '&':
 	    no = 0;
 	    break;
@@ -2313,6 +2394,7 @@ Init_Regexp()
     rb_define_const(rb_cRegexp, "IGNORECASE", INT2FIX(RE_OPTION_IGNORECASE));
     rb_define_const(rb_cRegexp, "EXTENDED", INT2FIX(RE_OPTION_EXTENDED));
     rb_define_const(rb_cRegexp, "MULTILINE", INT2FIX(RE_OPTION_MULTILINE));
+    rb_define_const(rb_cRegexp, "ENGINE",    rb_obj_freeze(rb_str_new2("Oniguruma")));
 
     rb_global_variable(&reg_cache);
 
