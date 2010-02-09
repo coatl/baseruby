@@ -2542,6 +2542,7 @@ yyerror(msg)
 	char *p2;
 	const char *pre = "", *post = "";
 
+#if 0
 	if (len > max_line_margin * 2 + 10) {
 	    int re_mbc_startpos _((const char *, int, int, int));
 	    if ((len = lex_p - p) > max_line_margin) {
@@ -2554,6 +2555,7 @@ yyerror(msg)
 	    }
 	    len = pe - p;
 	}
+#endif
 	buf = ALLOCA_N(char, len+2);
 	MEMCPY(buf, p, char, len);
 	buf[len] = '\0';
