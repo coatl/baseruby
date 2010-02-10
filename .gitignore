@@ -5,6 +5,7 @@ mkmf.log
 /baseruby
 /miniruby
 Makefile
+/config.status.lineno
 /.rbconfig.time
 /.ext
 /rbconfig.rb
