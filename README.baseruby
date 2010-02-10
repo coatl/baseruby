@@ -1,12 +1,12 @@
 baseruby is a fork of ruby (currently 1.8.6) with some changes:
 
-removed statics
+removed statics (undone)
 Marshal.ignore_sclass
 replaced regex engine with oniguruma
 deleted gdbm
 deleted readline; always use libedit instead
 cast2Proc
 renamed binaries and libraries
-rubygems built in?
-selected gems built in? redparse & rubymacros ?
+rubygems built in? (undone)
+selected gems built in? redparse & rubymacros ? (undone)
 
