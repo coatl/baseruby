@@ -68,9 +68,9 @@ then
 (it is also a good idea to do 'make clean' before compiling))
 fi
 
-if test "$program_prefix" = NONE; then
-  program_prefix=
-fi
+#if test "$program_prefix" = NONE; then
+  program_prefix="base"
+#fi
 AC_CANONICAL_TARGET
 target_os=`echo $target_os | sed 's/linux-gnu$/linux/;s/linux-gnu/linux-/'`
 ac_install_sh='' # unusable for extension libraries.
