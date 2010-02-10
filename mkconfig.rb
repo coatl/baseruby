@@ -100,7 +100,7 @@ end
 
 drive = File::PATH_SEPARATOR == ';'
 
-prefix = '/lib/ruby/' + RUBY_VERSION.sub(/\.\d+$/, '') + '/' + RUBY_PLATFORM
+prefix = '/lib/baseruby/' + RUBY_VERSION.sub(/\.\d+$/, '') + '/' + RUBY_PLATFORM
 print "  TOPDIR = File.dirname(__FILE__).chomp!(#{prefix.dump})\n"
 print "  DESTDIR = ", (drive ? "TOPDIR && TOPDIR[/\\A[a-z]:/i] || " : ""), "'' unless defined? DESTDIR\n"
 print "  CONFIG = {}\n"
@@ -139,7 +139,7 @@ print(*v_fast)
 print(*v_others)
 print <<EOS
   CONFIG["ruby_version"] = "$(MAJOR).$(MINOR)"
-  CONFIG["rubylibdir"] = "$(libdir)/ruby/$(ruby_version)"
+  CONFIG["rubylibdir"] = "$(libdir)/baseruby/$(ruby_version)"
   CONFIG["archdir"] = "$(rubylibdir)/$(arch)"
   CONFIG["sitelibdir"] = "$(sitedir)/$(ruby_version)"
   CONFIG["sitearchdir"] = "$(sitelibdir)/$(sitearch)"
