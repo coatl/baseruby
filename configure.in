@@ -1615,10 +1615,10 @@ case "$target_os" in
 esac
 case "$target_os" in
   cygwin*|mingw*|*djgpp*|os2-emx*)
-    RUBY_LIB_PREFIX="/lib/ruby"
+    RUBY_LIB_PREFIX="/lib/baseruby"
     ;;
   *)
-    RUBY_LIB_PREFIX="`eval "echo ${libdir}"`/ruby"
+    RUBY_LIB_PREFIX="`eval "echo ${libdir}"`/baseruby"
     ;;
 esac
 RUBY_LIB_PATH="${RUBY_LIB_PREFIX}/${MAJOR}.${MINOR}"
