@@ -6,4 +6,7 @@ replaced regex engine with oniguruma
 deleted gdbm
 deleted readline; always use libedit instead
 cast2Proc
+renamed binaries and libraries
+rubygems built in?
+selected gems built in? redparse & rubymacros ?
 
