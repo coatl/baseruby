@@ -398,7 +398,8 @@ w_extended(klass, arg, check)
     if (check && FL_TEST(klass, FL_SINGLETON)) {
 	if (RCLASS(klass)->m_tbl->num_entries ||
 	    (RCLASS(klass)->iv_tbl && RCLASS(klass)->iv_tbl->num_entries > 1)) {
-	    rb_raise(rb_eTypeError, "singleton can't be dumped");
+	    if (RTEST(rb_thread_local_aref(rb_thread_current(),rb_str_new2("Marshal.ignore_sclass"))))
+	      rb_raise(rb_eTypeError, "singleton can't be dumped");
 	}
 	klass = RCLASS(klass)->super;
     }
