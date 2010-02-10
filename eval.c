@@ -9412,6 +9412,21 @@ umethod_bind(method, recv)
     return method;
 }
 
+
+VALUE method_c_address(VALUE self){
+  struct METHOD* data;
+  NODE * volatile body;
+
+  Data_Get_Struct(self, struct METHOD, data);
+  body=data->body;
+  if (nd_type(body)==NODE_CFUNC)
+    return ULONG2NUM((unsigned long)body->nd_cfnc);
+  else
+    return Qnil;
+}
+
+
+
 /*
  *  call-seq:
  *     meth.arity    => fixnum
@@ -9786,6 +9801,8 @@ Init_Proc()
     rb_define_method(rb_cMethod, "unbind", method_unbind, 0);
     rb_define_method(rb_mKernel, "method", rb_obj_method, 1);
 
+    rb_define_method(rb_cMethod, "c_method_address", method_c_address, 0);
+
     rb_cUnboundMethod = rb_define_class("UnboundMethod", rb_cObject);
     rb_undef_alloc_func(rb_cUnboundMethod);
     rb_undef_method(CLASS_OF(rb_cUnboundMethod), "new");
@@ -9796,6 +9813,8 @@ Init_Proc()
     rb_define_method(rb_cUnboundMethod, "to_s", method_inspect, 0);
     rb_define_method(rb_cUnboundMethod, "bind", umethod_bind, 1);
     rb_define_method(rb_cModule, "instance_method", rb_mod_method, 1);
+
+    rb_define_method(rb_cUnboundMethod, "c_method_address", method_c_address, 0);
 }
 
 /*
