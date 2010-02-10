@@ -2,7 +2,7 @@
 *.a
 /parse.c
 mkmf.log
-/ruby
+/baseruby
 /miniruby
 Makefile
 /.rbconfig.time
