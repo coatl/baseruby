@@ -25,22 +25,11 @@ have_library("ncurses", "tgetnum") ||
   have_library("termcap", "tgetnum") ||
   have_library("curses", "tgetnum")
 
-if enable_libedit
   unless (have_readline_header("editline/readline.h") ||
           have_readline_header("readline/readline.h")) &&
           have_library("edit", "readline")
     exit
   end
-else
-  unless ((have_readline_header("readline/readline.h") &&
-           have_readline_header("readline/history.h")) &&
-           (have_library("readline", "readline") ||
-            have_library("edit", "readline"))) ||
-            (have_readline_header("editline/readline.h") &&
-             have_library("edit", "readline"))
-    exit
-  end
-end
 
 have_func("rl_filename_completion_function")
 have_func("rl_username_completion_function")
