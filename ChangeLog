@@ -1,3 +1,32 @@
+Thu May 26 02:15:00 2010 Kirk Haines <khaines@ruby-lang.org>
+
+	* signal.c: Bug #911 [ruby-core:20723]; this problem exists because Resolv::ResolvTimeout has Interrupt in its ancestry, and Interrupt, which descends from Signal, still used Signal's initialize() method, which requires an argument. Interrupt, however, should not require an argument. This is a backport of r12226 on the 1.8.7 branch, which fixed this problem.
+
+Mon May 25 06:59:00 2010 Kirk Haines <khaines@ruby-lang.org>
+
+	* ChangeLog: Changed dates on the last commit records, because I didn't shift the day when I shifted timezones to JST. r28003
+
+	* io.c: Backport #776 [ruby-core:20043]; added an ifdef _#WIN32 to rb_io_flush to do an fsync on windows. r28003
+
+Mon May 25 06:26:00 2010 Kirk haines <khaines@ruby-lang.org>
+
+	* ext/openssl/ossl_config.c: Backport #484 [ruby-core:18377]; OpenSSL::Config now freezes correctly, preventing further modification. r28002
+
+Mon May 25 05:25:00 2010 Kirk haines <khaines@ruby-lang.org>
+
+	* lib/fileutils.rb: Backport #1700 [ruby-core:24078]; stringify group argument in #fu_get_gid before making regexp match. r28001
+
+Mon May 25 05:15:00 2010 Kirk Haines <khaines@ruby-lang.org>
+
+	* configure.in: Bug #2553 [ruby-core:27380]; Add a --disable-ucontext option, for use with --enable-pthreads, to avoid performance loss from --enable-pthreads and the oodles of sigprocmask calls that normally brings. r27999
+
+Thu May 20 04:10:00 2010 Kirk Haines <khaines@ruby-lang.org>
+
+	* lib/cgi.rb: Backport #229 [ruby-core:17634]; CGI::Cookie objects can get out of sync when CGI::Cookie#value= is used to assign a new value. Also, if a nil value ends up in the array of values for the cookie, CGI::Cookie#to_s would blow up on a gsub error when it tried to CGI::escape the nil value. This is fixed so that nils are treated as empty strings. r27932
+
+	* lib/irb/ext/multi-irb.rb: Backport #145 [ruby-dev:35075]; Fixes some misleading exceptions in IRB's fg command when used with no arguments or invalid arguments. r27934
+	* lib/irb/extended-command.rb: Backport #145 [ruby-dev:35075]
+
 Fri Mar 5  03:58:00 2010 Kirk Haines <khaines@ruby-lang.org>
 
 	* lib/yaml/tag.rb: Add a :startdoc: at the end of the YAML specific Module functions so that the rest of the Module docs get generated. Fixes Bug #1718 [ruby-core:24121].
