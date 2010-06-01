@@ -169,6 +169,24 @@ dll = CONFIG["LIBRUBY_SO"]
 lib = CONFIG["LIBRUBY"]
 arc = CONFIG["LIBRUBY_A"]
 
+#shouldn't need ron in here, grrrrr
+extralibs=%w[rubymacros redparse rubylexer reg sequence ron]
+extralibs.map!{|extralib|
+  #rex=%r{/#{extralib}(?:-\d+\.\d+\.\d+[a-zA-Z0-9]*)?/?}
+  res=$:.grep(%r{\A#{extralib}/lib/?\z}).first
+  res[%r{/lib/?\z}]='' if res
+
+  unless res
+    res=File.expand_path srcdir+"/../"+extralib
+  end
+
+  unless res and File.exist?(res)
+    raise "couldn't find #{extralib} in $: or #{srcdir}/../#{extralib}"
+  end
+  
+  res
+}
+
 install?(:local, :arch, :bin) do
   puts "installing binary commands"
 
@@ -196,6 +214,13 @@ install?(:local, :arch, :bin) do
       ln_sf(dll, File.join(libdir, link))
     end
   end
+
+  extralibs.each{|extralib|
+    dir=extralib+"/bin"
+    Dir[extralib+"/bin/*"].each{|prog|
+      install prog, bindir, :mode=>0755
+    }
+  }
 end
 
 if $extout
@@ -291,6 +316,12 @@ install?(:local, :comm, :lib) do
     makedirs dir
     install f, dir, :mode => 0644
   end
+
+  extralibs.each{|extralib|
+    Dir[extralib+"/{lib,ext}/*"].each{|f|
+      cp_r f, rubylibdir, :preserve=>true
+    }
+  }
 end
 
 install?(:local, :arch, :lib) do
